@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import React, { useState } from 'react';
+import Image from 'next/image';
 
 interface Marca {
   BrandName: string;
@@ -73,7 +74,15 @@ export default function SearchForm() {
             <div key={index} className="border p-4 rounded">
               <h3 className="font-bold">{marca.BrandName}</h3>
               {marca.IMAGE && (
-                <img src={marca.IMAGE} alt={marca.BrandName} className="h-32 object-contain" />
+                <div className="relative h-32 w-full">
+                  <Image
+                    src={marca.IMAGE}
+                    alt={marca.BrandName}
+                    fill
+                    className="object-contain"
+                    sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                  />
+                </div>
               )}
               <p>Fecha de registro: {marca.RegistrationDate}</p>
               <p>Fecha de vencimiento: {marca.ExpirationDate}</p>

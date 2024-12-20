@@ -26,6 +26,28 @@ async function getSpreadsheetIds() {
   }
 }
 
+interface GoogleVisualizationColumn {
+  label: string;
+  type: string;
+  id: string;
+}
+
+interface GoogleVisualizationCell {
+  v?: string | number | null;
+  f?: string;
+}
+
+interface GoogleVisualizationRow {
+  c: GoogleVisualizationCell[];
+}
+
+interface GoogleVisualizationResponse {
+  table: {
+    cols: GoogleVisualizationColumn[];
+    rows: GoogleVisualizationRow[];
+  };
+}
+
 async function fetchSheetData(id: string) {
   try {
     const url = `https://docs.google.com/spreadsheets/d/${id}/gviz/tq?tqx=out:json`;
@@ -39,21 +61,19 @@ async function fetchSheetData(id: string) {
     const text = await response.text();
     
     try {
-      // Extraer solo la parte JSON usando regex
       const match = text.match(/google\.visualization\.Query\.setResponse\((.*)\);/);
       if (!match || !match[1]) {
         throw new Error('No se pudo extraer el JSON de la respuesta');
       }
 
-      const data = JSON.parse(match[1]);
+      const data = JSON.parse(match[1]) as GoogleVisualizationResponse;
       if (!data.table || !data.table.rows) {
         throw new Error('Formato de datos inválido');
       }
 
-      // Convertir el formato de Google a filas simples
-      const headers = data.table.cols.map((col: any) => col.label);
-      const rows = data.table.rows.map((row: any) => 
-        row.c.map((cell: any) => cell?.v?.toString() || '')
+      const headers = data.table.cols.map((col: GoogleVisualizationColumn) => col.label);
+      const rows = data.table.rows.map((row: GoogleVisualizationRow) => 
+        row.c.map((cell: GoogleVisualizationCell) => cell?.v?.toString() || '')
       );
 
       return [headers, ...rows];
