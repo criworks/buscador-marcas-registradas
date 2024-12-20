@@ -90,67 +90,66 @@ async function fetchSheetData(id: string) {
 export async function searchBrands(query: string) {
   try {
     const sheetIds = await getSpreadsheetIds();
-    console.log('Hojas encontradas:', sheetIds);
+    console.log('Hojas encontradas:', sheetIds.length);
 
-    const searchPromises = sheetIds.map(async (id) => {
-      try {
-        const rows = await fetchSheetData(id);
-        if (!rows.length) return [];
+    // Limitar el número de hojas que se buscan simultáneamente
+    const BATCH_SIZE = 3;
+    const results: any[] = [];
 
-        const headers = rows[0];
-        console.log(`Hoja ${id} - Headers encontrados:`, headers);
-        
-        const columnIndexes = {
-          BrandName: headers.findIndex((h: string) => 
-            h?.toLowerCase().includes('brandname') || 
-            h?.toLowerCase().includes('brand name')
-          ),
-          IMAGE: headers.findIndex((h: string) => h?.includes('IMAGE')),
-          RegistrationDate: headers.findIndex((h: string) => h?.includes('RegistrationDate')),
-          ExpirationDate: headers.findIndex((h: string) => h?.includes('ExpirationDate')),
-          LastUpdatedDate: headers.findIndex((h: string) => h?.includes('LastUpdatedDate')),
-          Applicants: headers.findIndex((h: string) => h?.includes('Applicants')),
-          Representatives: headers.findIndex((h: string) => h?.includes('Representatives'))
-        };
+    // Procesar las hojas en lotes
+    for (let i = 0; i < sheetIds.length; i += BATCH_SIZE) {
+      const batch = sheetIds.slice(i, i + BATCH_SIZE);
+      const batchPromises = batch.map(async (id) => {
+        try {
+          const rows = await fetchSheetData(id);
+          if (!rows.length) return [];
 
-        if (columnIndexes.BrandName === -1) {
-          console.log(`Hoja ${id} - No se encontró la columna BrandName`);
+          const headers = rows[0];
+          const columnIndexes = {
+            BrandName: headers.findIndex((h: string) => 
+              h?.toLowerCase().includes('brandname')
+            ),
+            IMAGE: headers.findIndex((h: string) => h?.includes('IMAGE')),
+            RegistrationDate: headers.findIndex((h: string) => h?.includes('RegistrationDate')),
+            ExpirationDate: headers.findIndex((h: string) => h?.includes('ExpirationDate')),
+            LastUpdatedDate: headers.findIndex((h: string) => h?.includes('LastUpdatedDate')),
+            Applicants: headers.findIndex((h: string) => h?.includes('Applicants')),
+            Representatives: headers.findIndex((h: string) => h?.includes('Representatives'))
+          };
+
+          if (columnIndexes.BrandName === -1) return [];
+
+          return rows.slice(1)
+            .filter(row => row[columnIndexes.BrandName]?.toLowerCase()
+                          .includes(query.toLowerCase()))
+            .map(row => ({
+              sheetId: id,
+              BrandName: row[columnIndexes.BrandName],
+              IMAGE: row[columnIndexes.IMAGE],
+              RegistrationDate: row[columnIndexes.RegistrationDate],
+              ExpirationDate: row[columnIndexes.ExpirationDate],
+              LastUpdatedDate: row[columnIndexes.LastUpdatedDate],
+              Applicants: row[columnIndexes.Applicants],
+              Representatives: row[columnIndexes.Representatives]
+            }));
+        } catch (error) {
+          console.error(`Error en hoja ${id}:`, error);
           return [];
         }
+      });
 
-        const matches = rows.slice(1).filter(row => {
-          const brandName = row[columnIndexes.BrandName];
-          return brandName && 
-                 brandName.toLowerCase().trim()
-                         .includes(query.toLowerCase().trim());
-        });
+      const batchResults = await Promise.all(batchPromises);
+      results.push(...batchResults.flat());
 
-        console.log(`Hoja ${id} - Coincidencias encontradas:`, matches.length);
-        if (matches.length > 0) {
-          console.log(`Hoja ${id} - Primera coincidencia:`, matches[0]);
-        }
-
-        return matches.map(row => ({
-          sheetId: id,
-          BrandName: row[columnIndexes.BrandName],
-          IMAGE: row[columnIndexes.IMAGE],
-          RegistrationDate: row[columnIndexes.RegistrationDate],
-          ExpirationDate: row[columnIndexes.ExpirationDate],
-          LastUpdatedDate: row[columnIndexes.LastUpdatedDate],
-          Applicants: row[columnIndexes.Applicants],
-          Representatives: row[columnIndexes.Representatives]
-        }));
-      } catch (error) {
-        console.error(`Error en hoja ${id}:`, error);
-        return [];
+      // Si ya encontramos resultados, podemos retornar temprano
+      if (results.length > 0) {
+        console.log('Encontrados resultados, retornando temprano');
+        return results;
       }
-    });
+    }
 
-    const results = await Promise.all(searchPromises);
-    const flatResults = results.flat();
-    console.log('Total de resultados:', flatResults.length);
-    
-    return flatResults;
+    console.log('Total de resultados:', results.length);
+    return results;
   } catch (error) {
     console.error('Error al buscar marcas:', error);
     return [];
