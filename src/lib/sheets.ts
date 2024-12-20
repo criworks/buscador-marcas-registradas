@@ -87,14 +87,24 @@ async function fetchSheetData(id: string) {
   }
 }
 
+interface SearchResult {
+  sheetId: string;
+  BrandName: string;
+  IMAGE?: string;
+  RegistrationDate?: string;
+  ExpirationDate?: string;
+  LastUpdatedDate?: string;
+  Applicants?: string;
+  Representatives?: string;
+}
+
 export async function searchBrands(query: string) {
   try {
     const sheetIds = await getSpreadsheetIds();
     console.log('Hojas encontradas:', sheetIds.length);
 
-    // Limitar el número de hojas que se buscan simultáneamente
     const BATCH_SIZE = 3;
-    const results: any[] = [];
+    const results: SearchResult[] = [];
 
     // Procesar las hojas en lotes
     for (let i = 0; i < sheetIds.length; i += BATCH_SIZE) {
